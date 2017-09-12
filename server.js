@@ -1,41 +1,47 @@
-var http = require('http'),
+let http = require('http'),
   express = require('express'),
   bodyParser = require('body-parser'),
-  io = require('socket.io');
-var net = require('net');
+  net = require('net');
 
-var app = express();
-var httpServer = http.createServer(app);
-let sock;
-// io = io.listen(server);
-//
-//
-// io.on('connection', function (socket) {
-// 	console.log("connected client");
-//   socket.emit('news', { hello: 'world' });
-//   socket.on('my other event', function (data) {
-//     console.log(data);
-//   });
-// });
+let app = express();
+let httpServer = http.createServer(app);
+
+let sockets = [];
+
 
 function dataController(data){
-  let str = data.toString();
-	let obj = JSON.parse(str);
-	// console.log(`status = ${obj.status}`);
-  console.dir(obj);
-	switch (obj.status) {
-		case "bye":
-			let response = {status: "bye"}
-			console.log("sending answer bye");
-			sock.write(JSON.stringify(response) + "\n");
-			break;
-		case "output":
-			send(obj);
-			break;
-	}
+myData = JSON.parse(data.toString());
+console.log(myData);
+  switch (myData.type) {
+    case "message":
+    // console.log("sending message");
+      sendMessage(myData);
+      break;
+    default:
+
+  }
+
 };
-var server = net.createServer(function(socket) {
-  sock = socket;
+function sendMessage(data){
+  let userName = data.name?data.name:"default_name";
+  let message = data.value?data.value:data.message;
+  console.log(`data.value? - ${data.value}`);
+  console.log(`data.value? - ${data.message}`);
+  console.log(`data.value? - ${data.type}`);
+
+  let message_to_send = {
+    type: "message",
+    value: message,
+    name: userName
+  };
+  console.log(`message to send ${JSON.stringify(message_to_send)}`);
+  sockets.forEach((socket)=>{
+    socket.write(JSON.stringify(message_to_send)+"\n");
+  });
+
+}
+let server = net.createServer(function(socket) {
+  sockets.push(socket);
   console.log("one more client");
   socket.on("data", dataController);
 });
@@ -44,97 +50,25 @@ var server = net.createServer(function(socket) {
 app.set('views', './views');
 app.set('view engine', 'pug');
 
-
-
-
-function send(obj) {
-	console.log("sending cassetes");
-  let response = {
-    "status": "stack",
-    "error_code": {
-      "message": "",
-      "code": ""
-    },
-    "cassettes": {
-      "cassette_1": {
-        "status": "31",
-        "exits": obj.cassette_1,
-        "reject": 0,
-        "chks": 0,
-        "error": "38",
-        "type": "45"
-      },
-      cassette_2: {
-        "status": "31",
-        "exits": obj.cassette_2,
-        "reject": 0,
-        "chks": 0,
-        "error": "38",
-        "type": "45"
-      }
-    },
-    // banknote: {
-    //   value: 50,
-    //   valute: 'UAH',
-    //   hash: 'somehash'
-    // }
-  }
-  sock.write(JSON.stringify(response) + "\n");
-  // io.sockets.emit("STACK",response);
-}
-
-function getMoney() {
-  let response = {
-    status: 'stack',
-    banknote: {
-      value: 50,
-      valute: 'UAH',
-      hash: 'somehash'
-    }
-  };
-  sock.write(JSON.stringify(response) + "\n");
-}
-
-function idle() {
-  let response = {
-    status: 'idle',
-  };
-  sock.write(JSON.stringify(response) + "\n");
-}
+//use bodyParser
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 //routes
 app.get("/", function(req, res) {
   res.render('index', {
-    text: "server is waiting"
+    data: sockets
   });
 });
-app.get("/idle", function(req, res) {
-  idle();
+app.post("/", function(req, res){
+  console.log(req.body);
   res.render('index', {
-    text: "server is sent idle"
+    data: sockets
   });
-});
-app.get("/send", function(req, res) {
-  console.log("sending money");
-  res.render('index', {
-    text: "sending money"
-  });
-  send();
-});
-app.get("/stop", function(req, res) {
-  console.log("stop sending money");
-  res.render('index', {
-    text: "stop sending money"
-  });
-});
-app.get("/get", function(req, res) {
-  console.log("getting money");
-  getMoney();
-  res.render('index', {
-    text: "getting money"
-  });
+  let message = req.body.message+"\n";
+  sendMessage(req.body);
 });
 
 
-server.listen(6565, () => console.log("socket is runing on the port 6565"));
-httpServer.listen(6566, () => console.log("httpServer is running on port 6566"));
+server.listen(6060, () => console.log("socket is runing on the port 6060"));
+httpServer.listen(8080, () => console.log("httpServer is running on port 8080"));
